@@ -153,6 +153,52 @@
   .logic .foot { margin-top:14px; font-size:12px; color:var(--muted); }
   .logic .warn { color:var(--bad); font-weight:700; }
 
+  /* App manual */
+  .manual h2 { font-size:18px; font-weight:800; letter-spacing:-.01em; }
+  .manual .sub { font-size:14px; font-weight:700; color:var(--muted); margin:6px 0 4px; }
+  .manual .intro { font-size:12.5px; color:var(--muted); margin:8px 0 18px; line-height:1.55; }
+  .manual-row { display:grid; grid-template-columns:300px 1fr; gap:28px; align-items:start; }
+  @media (max-width:760px) { .manual-row { grid-template-columns:1fr; justify-items:center; } }
+  .co { display:inline-grid; place-items:center; width:21px; height:21px; border-radius:50%; background:#f5821f; color:#fff; font-size:12px; font-weight:800; flex:none; box-shadow:0 0 0 2px rgba(255,255,255,.9); }
+  .ann { display:flex; flex-direction:column; gap:13px; }
+  .ann .ai { display:flex; gap:10px; align-items:flex-start; font-size:13px; line-height:1.5; color:var(--muted); }
+  .ann .ai b { color:var(--text); }
+  .ann .ai .lk { color:var(--accent); font-weight:700; }
+
+  /* Phone mockup */
+  .phone { position:relative; width:300px; background:#0c2138; border-radius:30px; padding:8px 10px 6px; border:6px solid #05101d; box-shadow:0 12px 34px rgba(0,0,0,.30); color:#fff; font-size:12px; }
+  .phone .co { position:absolute; z-index:5; }
+  .p-status { display:flex; justify-content:space-between; align-items:center; padding:6px 12px 10px; font-weight:800; }
+  .p-status .r { letter-spacing:2px; opacity:.9; }
+  .p-dates, .p-prog, .p-nav { position:relative; }
+  .p-dates { display:flex; gap:7px; padding:0 6px 12px; overflow:hidden; }
+  .p-cal, .p-date { display:grid; place-items:center; height:34px; border-radius:9px; background:#16324f; font-weight:800; }
+  .p-cal { width:40px; } .p-date { min-width:52px; padding:0 6px; }
+  .p-date.on { background:#f5821f; }
+  .p-prog { display:flex; align-items:center; gap:8px; padding:2px 12px 12px; }
+  .p-spark { color:#f5821f; font-size:15px; }
+  .p-bar { flex:1; height:9px; border-radius:6px; background:#fff; overflow:hidden; }
+  .p-bar i { display:block; height:100%; width:20%; background:#f5821f; }
+  .p-progn { font-weight:800; }
+  .p-map { position:relative; height:150px; border-radius:12px; overflow:hidden; margin:0 4px 12px; }
+  .p-map svg { display:block; width:100%; height:100%; }
+  .p-card { position:relative; background:#fff; color:#12233a; border-radius:14px; padding:12px 12px 12px 14px; margin:0 4px 10px; display:flex; gap:10px; }
+  .p-num { flex:none; width:34px; height:34px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:800; font-size:15px; }
+  .p-num.red { background:#e0322f; } .p-num.orange { background:#f5821f; }
+  .p-time { color:#6b7a8d; font-weight:700; font-size:11.5px; }
+  .p-title { font-weight:800; font-size:14px; line-height:1.2; margin:2px 0 5px; }
+  .p-addr { color:#6b7a8d; font-size:11.5px; margin-bottom:8px; }
+  .p-badges { display:flex; gap:7px; }
+  .p-pts { background:#e0322f; color:#fff; font-weight:800; font-size:11px; padding:4px 9px; border-radius:20px; }
+  .p-pts.soft { background:#fbe6d3; color:#c05a12; }
+  .p-mi { background:#f3ece3; color:#7a6a55; font-weight:800; font-size:11px; padding:4px 9px; border-radius:20px; }
+  .p-chev { position:absolute; top:12px; right:12px; color:#9aa6b2; font-weight:800; }
+  .p-nav { display:flex; justify-content:space-around; padding:9px 4px 3px; border-top:1px solid #16324f; }
+  .p-nav div { text-align:center; color:#8aa0b6; font-size:10px; font-weight:800; line-height:1.5; position:relative; }
+  .p-nav div.on { color:#f5821f; }
+  .p-nav .ic { font-size:15px; }
+  .p-nav .nb { position:absolute; top:-3px; right:6px; background:#e0322f; color:#fff; font-size:8px; font-weight:800; width:13px; height:13px; border-radius:50%; display:grid; place-items:center; }
+
   footer { margin-top:16px; font-size:11px; color:var(--muted); text-align:center; }
 </style>
 </head>
@@ -166,6 +212,7 @@
   <div class="tabs">
     <button class="tab active" data-tab="sim">🧭 Simulator</button>
     <button class="tab" data-tab="logic">📋 Scoring Logic (3pt)</button>
+    <button class="tab" data-tab="manual">📖 App Manual</button>
   </div>
 
   <section id="tab-sim" class="tabpane">
@@ -258,6 +305,73 @@
         </table>
       </div>
       <p class="foot">*) Revenue = Collected Cash + Cash in Machine + Card Revenue <span class="warn">(Not just collected cash)</span>.</p>
+    </div>
+  </section>
+
+  <section id="tab-manual" class="tabpane" hidden>
+    <div class="panel manual">
+      <h2>Route App — User Manual</h2>
+      <div class="sub">1. Home (Route) screen</div>
+      <p class="intro">The Home screen shows today’s AI-optimized route: each stop in visit order with the points and driving distance for the day.</p>
+      <div class="manual-row">
+        <div class="phone">
+          <div class="p-status"><span>9:41</span><span class="r">●●●● 📶 🔋</span></div>
+          <div class="p-dates"><span class="co" style="top:-2px;right:2px">1</span>
+            <span class="p-cal">📅</span><span class="p-date on">5/11</span><span class="p-date">5/12</span><span class="p-date">5/13</span><span class="p-date">5/14</span><span class="p-date">5/1…</span>
+          </div>
+          <div class="p-prog"><span class="co" style="top:-4px;right:2px">2</span>
+            <span class="p-spark">✦</span><div class="p-bar"><i></i></div><span class="p-progn">8/40</span>
+          </div>
+          <div class="p-map"><span class="co" style="top:6px;right:6px">3</span>
+            <svg viewBox="0 0 280 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <rect width="280" height="150" fill="#e9e3d6"/>
+              <path d="M0 92 H280 M132 0 V150 M40 122 H210 M200 40 H280" stroke="#cdbfa8" stroke-width="6" fill="none" opacity=".6"/>
+              <path d="M150 128 L150 60 L205 34" stroke="#f5821f" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <g font-size="11" font-weight="800" text-anchor="middle" fill="#fff">
+                <circle cx="205" cy="34" r="12" fill="#f5821f"/><text x="205" y="38">3</text>
+                <circle cx="70" cy="105" r="12" fill="#f5821f"/><text x="70" y="109">6</text>
+                <circle cx="150" cy="118" r="12" fill="#e0322f"/><text x="150" y="122">1</text>
+                <circle cx="163" cy="132" r="12" fill="#f5821f"/><text x="163" y="136">2</text>
+                <circle cx="44" cy="96" r="12" fill="#fff" stroke="#12233a" stroke-width="1.5"/><text x="44" y="100" fill="#12233a">🚗</text>
+              </g>
+            </svg>
+          </div>
+          <div class="p-card"><span class="co" style="top:8px;right:34px">4</span>
+            <div class="p-num red">1</div>
+            <div>
+              <div class="p-time">9:45 AM – 10:12 AM</div>
+              <div class="p-title">AMC #4279 CHERRY BLOSSOM 14</div>
+              <div class="p-addr">📍 3825 Marketplace Circle</div>
+              <div class="p-badges"><span class="p-pts">✦ 26 Points</span><span class="p-mi">🚗 1.2mi</span></div>
+            </div>
+            <div class="p-chev">⌄</div>
+          </div>
+          <div class="p-card">
+            <div class="p-num orange">2</div>
+            <div>
+              <div class="p-time">11:58 PM – 12:14 PM</div>
+              <div class="p-title">AMC #0092 WESTMINSTER PRO</div>
+              <div class="p-addr">📍 3825 Marketplace Circle</div>
+              <div class="p-badges"><span class="p-pts soft">✦ 14 Points</span><span class="p-mi">🚗 1.2mi</span></div>
+            </div>
+            <div class="p-chev">⌄</div>
+          </div>
+          <div class="p-nav"><span class="co" style="top:0;right:6px">5</span>
+            <div class="on"><div class="ic">🧭</div>Route</div>
+            <div><div class="ic">📥</div><span class="nb">2</span>Inbox</div>
+            <div><div class="ic">📋</div>Menu</div>
+            <div><div class="ic">👤</div>Setting</div>
+          </div>
+        </div>
+
+        <div class="ann">
+          <div class="ai"><span class="co">1</span><div><b>Date selector</b> — Pick the day to view; the selected date (5/11) is highlighted in orange. Swipe for more dates.</div></div>
+          <div class="ai"><span class="co">2</span><div><b>Daily progress</b> — Points earned vs. the day’s total (8 / 40). The ✦ marks the AI-optimized target.</div></div>
+          <div class="ai"><span class="co">3</span><div><b>Route map</b> — Today’s optimized route. Numbered pins are the stops in visit order, the car marker is your current position, and the orange line is the driving route.</div></div>
+          <div class="ai"><span class="co">4</span><div><b>Stop card</b> — Each stop shows its time window, machine/location name, and address, plus two badges: <b>✦ Points</b> (value from the <span class="lk">Scoring Logic</span> tab) and <b>🚗 distance</b> to drive. Tap ⌄ to expand details.</div></div>
+          <div class="ai"><span class="co">5</span><div><b>Bottom navigation</b> — Switch between <b>Route</b> (this screen), <b>Inbox</b> (notifications, with an unread badge), <b>Menu</b>, and <b>Setting</b>.</div></div>
+        </div>
+      </div>
     </div>
   </section>
 </div>
@@ -641,8 +755,7 @@ document.getElementById('reroll').addEventListener('click', () => {
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
   const id = t.dataset.tab;
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
-  document.getElementById('tab-sim').hidden = (id !== 'sim');
-  document.getElementById('tab-logic').hidden = (id !== 'logic');
+  document.querySelectorAll('.tabpane').forEach(p => p.hidden = (p.id !== 'tab-' + id));
   document.getElementById('reroll').style.display = (id === 'sim') ? '' : 'none';
 }));
 
