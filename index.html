@@ -125,6 +125,30 @@
     border:1px solid var(--border); background:var(--panel-2); color:var(--muted); }
   .legend .chip i { display:inline-block; width:10px; height:10px; border-radius:50%; }
   .legend .chip i.line { width:14px; height:4px; border-radius:2px; }
+  /* Tabs */
+  .tabs { display:flex; gap:6px; margin-top:16px; border-bottom:1px solid var(--border); }
+  .tab { all:unset; cursor:pointer; font-size:13px; font-weight:700; color:var(--muted); padding:9px 16px; border-radius:8px 8px 0 0; position:relative; }
+  .tab:hover { color:var(--text); background:var(--panel-2); }
+  .tab.active { color:var(--accent); }
+  .tab.active::after { content:""; position:absolute; left:0; right:0; bottom:-1px; height:2.5px; background:var(--accent); border-radius:2px; }
+  .tabpane[hidden] { display:none; }
+
+  /* Scoring logic table */
+  .logic h2 { font-size:18px; font-weight:800; letter-spacing:-0.01em; line-height:1.3; }
+  .logic .sub { font-size:14px; font-weight:700; color:var(--muted); margin:6px 0 4px; }
+  .logic .intro { font-size:12.5px; color:var(--muted); margin:8px 0 14px; line-height:1.55; }
+  .logic .intro b { color:var(--accent); }
+  .ltwrap { overflow-x:auto; }
+  .ltable { width:100%; border-collapse:collapse; font-size:13px; min-width:640px; }
+  .ltable th { background:#0f1826; color:#fff; text-align:left; padding:11px 14px; font-weight:700; }
+  .ltable th:first-child { border-radius:6px 0 0 0; } .ltable th:last-child { border-radius:0 6px 0 0; }
+  .ltable td { border-bottom:1px solid var(--border); padding:12px 14px; vertical-align:top; line-height:1.5; }
+  .ltable td.factor { background:var(--panel-2); font-weight:700; color:var(--text); white-space:nowrap; }
+  .ltable td b { color:var(--text); }
+  .ltable .muted { color:var(--muted); }
+  .logic .foot { margin-top:14px; font-size:12px; color:var(--muted); }
+  .logic .warn { color:var(--bad); font-weight:700; }
+
   footer { margin-top:16px; font-size:11px; color:var(--muted); text-align:center; }
 </style>
 </head>
@@ -135,6 +159,12 @@
     <p class="lede">Randomly generates depots, locations, machines (count / type / points), and traffic, then dynamically optimizes the tour route and selected machines that maximize points within the daily working time. Reload or 🎲 to regenerate.</p>
   </header>
 
+  <div class="tabs">
+    <button class="tab active" data-tab="sim">🧭 Simulator</button>
+    <button class="tab" data-tab="logic">📋 Scoring Logic (3pt)</button>
+  </div>
+
+  <section id="tab-sim" class="tabpane">
   <div class="hero">
     <div class="hero-t">⚡ Maximize the Points You Earn</div>
     <div class="hero-b">Route AI maximizes total points while always visiting the <b>mandatory locations</b> it must reach — within the constraints of <b>working time</b> and <b>traffic</b>.</div>
@@ -179,6 +209,48 @@
   </div>
   </div>
   <footer>Tour optimization = visiting order from/to Home (exhaustive) × machine selection within remaining time (0/1 knapsack). Solved exactly for maximum points.</footer>
+  </section>
+
+  <section id="tab-logic" class="tabpane" hidden>
+    <div class="panel logic">
+      <h2>Strategy: Maximize Machine Appeal and Revenue While Maintaining Solid Compliance.</h2>
+      <div class="sub">Rules for Assigning 3pt to Machines and Actions</div>
+      <p class="intro">In the simulator, a machine or action worth <b>3pt</b> represents a high-priority target. These are the real-world rules that decide when 3pt is assigned.</p>
+      <div class="ltwrap">
+        <table class="ltable">
+          <thead><tr><th>Factors</th><th>Base Logic</th><th>3pt Trigger</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="factor">1. Revenue Lift</td>
+              <td><b>Service the machine before revenue declines</b><br><span class="muted">= Revenue* × Lift Rate × Days Since Last Visit</span></td>
+              <td><b>Machines ranking in the top 25% by revenue lift</b><br><span class="muted">RBC: Fast decay / KDT: Slow decay / Other: No decay</span></td>
+            </tr>
+            <tr>
+              <td class="factor">2. Cash Capacity</td>
+              <td><b>Collect before the cash limit is exceeded</b><br><span class="muted">Default is $500 / Changer is $1,000</span></td>
+              <td><b>Projected to reach the cash threshold</b></td>
+            </tr>
+            <tr>
+              <td class="factor">3. Minimum Frequency</td>
+              <td><b>Every 3 months or per client contract</b><br><span class="muted">e.g., H-Mart weekly, malls monthly</span></td>
+              <td><b>Minimum frequency reached</b></td>
+            </tr>
+            <tr>
+              <td class="factor">4. Work Instructions</td>
+              <td><b>Priority Actions at Each Location</b><br><span class="muted">e.g., RBC IP Products Installed</span></td>
+              <td><b>Varies by work instruction</b></td>
+            </tr>
+            <tr>
+              <td class="factor">5. Others</td>
+              <td><b>New Locations’ Installation</b></td>
+              <td><b>Assigned manually for installation support</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="foot">*) Revenue = Collected Cash + Cash in Machine + Card Revenue <span class="warn">(Not just collected cash)</span>.</p>
+    </div>
+  </section>
 </div>
 
 <script>
@@ -555,6 +627,15 @@ document.getElementById('reroll').addEventListener('click', () => {
   revealEl.classList.remove('shown');
   render();
 });
+
+// ============ Tabs ============
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  const id = t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  document.getElementById('tab-sim').hidden = (id !== 'sim');
+  document.getElementById('tab-logic').hidden = (id !== 'logic');
+  document.getElementById('reroll').style.display = (id === 'sim') ? '' : 'none';
+}));
 
 // ============ Init (randomized on every load) ============
 randomize();
