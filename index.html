@@ -207,7 +207,12 @@
     <p class="lede">Randomly generates depots, locations, machines (count / type / points), and traffic, then dynamically optimizes the tour route and selected machines that maximize points within the daily working time. Reload or 🎲 to regenerate.</p>
   </header>
 
+  <div class="tabs">
+    <button class="tab active" data-tab="sim">🧭 Simulator</button>
+    <button class="tab" data-tab="logic">📋 Scoring Logic (3pt)</button>
+  </div>
 
+  <section id="tab-sim" class="tabpane">
   <div class="hero">
     <div class="hero-t">⚡ Maximize the Points You Earn</div>
     <div class="hero-b">Route AI maximizes total points while always visiting the <b>mandatory locations</b> it must reach — within the constraints of <b>working time</b> and <b>traffic</b>.</div>
@@ -252,6 +257,54 @@
   </div>
   </div>
   <footer>Tour optimization = visiting order from/to Home (exhaustive) × machine selection within remaining time (0/1 knapsack). Solved exactly for maximum points.</footer>
+  </section>
+
+  <section id="tab-logic" class="tabpane" hidden>
+    <div class="panel logic">
+      <h2>Strategy: Maximize Machine Appeal and Revenue While Maintaining Solid Compliance.</h2>
+      <div class="sub">Rules for Assigning 3pt to Machines and Actions</div>
+      <p class="intro">In the simulator, a machine or action worth <b>3pt</b> represents a high-priority target. These are the real-world rules that decide when 3pt is assigned.</p>
+      <div class="ltwrap">
+        <table class="ltable">
+          <thead><tr><th>Factors</th><th>Base Logic</th><th>3pt Trigger</th><th>Route App</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="factor">1. Revenue Lift</td>
+              <td><b>Service the machine before revenue declines</b><br><span class="muted">= Revenue* × Lift Rate × Days Since Last Visit</span></td>
+              <td><b>Machines ranking in the top 25% by revenue lift</b><br><span class="muted">RBC: Fast decay / KDT: Slow decay / Other: No decay</span></td>
+              <td><span class="rab max">Maximize</span></td>
+            </tr>
+            <tr>
+              <td class="factor">2. Cash Capacity</td>
+              <td><b>Collect before the cash limit is exceeded</b><br><span class="muted">Default is $500 / Changer is $1,000</span></td>
+              <td><b>Projected to reach the cash threshold</b></td>
+              <td><span class="rab must">Mandatory</span></td>
+            </tr>
+            <tr>
+              <td class="factor">3. Minimum Frequency</td>
+              <td><b>Every 3 months or per client contract</b><br><span class="muted">e.g., H-Mart weekly, malls monthly</span></td>
+              <td><b>Minimum frequency reached</b></td>
+              <td><span class="rab must">Mandatory</span></td>
+            </tr>
+            <tr>
+              <td class="factor">4. Work Instructions</td>
+              <td><b>Priority Actions at Each Location</b><br><span class="muted">e.g., RBC IP Products Installed</span></td>
+              <td><b>Varies by work instruction</b></td>
+              <td><span class="rab max">Maximize</span></td>
+            </tr>
+            <tr>
+              <td class="factor">5. Others</td>
+              <td><b>New Locations’ Installation</b></td>
+              <td><b>Assigned manually for installation support</b></td>
+              <td><span class="rab na">Out of scope</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="foot">*) Revenue = Collected Cash + Cash in Machine + Card Revenue <span class="warn">(Not just collected cash)</span>.</p>
+    </div>
+  </section>
+
 </div>
 
 <script>
@@ -629,6 +682,13 @@ document.getElementById('reroll').addEventListener('click', () => {
   render();
 });
 
+// ============ Tabs ============
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  const id = t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  document.querySelectorAll('.tabpane').forEach(p => p.hidden = (p.id !== 'tab-' + id));
+  document.getElementById('reroll').style.display = (id === 'sim') ? '' : 'none';
+}));
 
 // ============ Init (randomized on every load) ============
 randomize();
