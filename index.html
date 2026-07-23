@@ -266,6 +266,7 @@
       <div class="tool"><label>Mandatory <b id="mustVal">1</b></label><input type="range" id="mustSlider" min="0" max="7" step="1" value="1"></div>
       <div class="tool"><label>Edge scale <b id="scaleVal">×1.0</b></label><input type="range" id="scale" min="0.2" max="3" step="0.1" value="1"></div>
       <div class="tool"><label>Working time <b id="budVal">480</b> min</label><input type="range" id="budget" min="120" max="1200" step="30" value="480"></div>
+      <div class="tool"><label>Traffic <b id="jamVal">20</b>%</label><input type="range" id="jamN" min="0" max="60" step="5" value="20"></div>
       <div class="tool mtypes"><span class="mtlbl">Machine types — color · work min</span>
         <div class="mtrow">
           <span class="mt"><input type="color" data-type="0" value="#c3cad4"><span class="stepper"><button data-min="0" data-d="-1" aria-label="decrease">−</button><span class="cnt" data-minval="0">30</span><button data-min="0" data-d="1" aria-label="increase">＋</button></span></span>
@@ -380,6 +381,7 @@ let dayBudget = 480;       // daily working time (min) = 8 hours
 let showAnswer = false;    // toggle for the answer (blue route + KPIs); default = hidden
 let nLoc = 5;              // number of locations (parameter)
 let nMust = 1;             // number of mandatory locations (parameter)
+let jamRate = 0.20;        // traffic (jam) ratio (parameter)
 const MIN_PER_PX = 0.2;    // on-screen distance (px) → travel time (min)
 
 const STATE = {
@@ -418,8 +420,7 @@ function randomize() {
   const mustN = Math.min(locNodes.length, nMust);
   locNodes.slice().sort(() => Math.random() - 0.5).slice(0, mustN).forEach(n => n.must = true);
 
-  // Edges (complete graph) + random traffic (rate 10-40%, randomized each time)
-  const jamRate = rnd(0.10, 0.40);
+  // Edges (complete graph) + traffic at the current ratio (parameter)
   EDGES = [];
   for (let i = 0; i < NODES.length; i++)
     for (let j = i + 1; j < NODES.length; j++)
@@ -485,6 +486,7 @@ function optimize() {
     const items = [];
     subset.forEach(id => (byId[id].machines || []).forEach(m => items.push({ pt: m.pt, min: (TYPES[m.type] || TYPES[0]).min, ref: m })));
     const dp = knapDP(items, cap);
+    calc += items.length * (cap + 1);   // machine-selection (0/1 knapsack) DP cells
     for (const perm of permute(subset)) {
       calc++;
       const seq = ['home', ...perm, 'home'];
@@ -643,7 +645,7 @@ function updateKPIs(b) {
     { k: 'Working time', v: rev ? (hasRoute ? b.total : 0) : q, s: `/ ${dayBudget} min`, cls: '' },
     { k: 'Travel + work', v: rev ? `${b.travel}+${b.work}` : q, s: 'min (travel + work)', cls: 'small' },
     { k: 'Locations visited', v: rev ? locsVisited : q, s: `/ ${locs.length} · mandatory ${mustCount}`, cls: '' },
-    { k: 'Calculations', v: (b.calc || 0).toLocaleString(), s: 'route combinations evaluated', cls: 'small' },
+    { k: 'Calculations', v: (b.calc || 0).toLocaleString(), s: 'route + machine-selection steps', cls: 'small' },
   ];
   document.getElementById('kpis').innerHTML = kpis.map(x =>
     `<div class="kpi${x.hl ? ' hl' : ''}"><div class="k">${x.k}</div><div class="v ${x.cls}">${x.v}</div><div class="s">${x.s}</div></div>`).join('');
@@ -704,6 +706,14 @@ scaleEl.addEventListener('input', () => { edgeScale = Number(scaleEl.value); sca
 
 const budgetEl = document.getElementById('budget'), budVal = document.getElementById('budVal');
 budgetEl.addEventListener('input', () => { dayBudget = Number(budgetEl.value); budVal.textContent = dayBudget; render(); });
+
+// Traffic ratio (re-rolls each edge's jam state at the new ratio, keeping the layout)
+const jamNEl = document.getElementById('jamN'), jamVal = document.getElementById('jamVal');
+jamNEl.addEventListener('input', () => {
+  jamRate = Number(jamNEl.value) / 100; jamVal.textContent = Number(jamNEl.value);
+  EDGES.forEach(e => e.state = Math.random() < jamRate ? 'jam' : 'normal');
+  render();
+});
 
 document.querySelectorAll('input[data-type]').forEach(inp =>
   inp.addEventListener('input', () => { TYPES[Number(inp.dataset.type)].color = inp.value; render(); }));
