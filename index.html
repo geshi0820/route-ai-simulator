@@ -157,18 +157,15 @@
   .manual h2 { font-size:18px; font-weight:800; letter-spacing:-.01em; }
   .manual .sub { font-size:14px; font-weight:700; color:var(--muted); margin:6px 0 4px; }
   .manual .intro { font-size:12.5px; color:var(--muted); margin:8px 0 18px; line-height:1.55; }
-  .manual-row { display:grid; grid-template-columns:300px 1fr; gap:28px; align-items:start; }
-  @media (max-width:760px) { .manual-row { grid-template-columns:1fr; justify-items:center; } }
-  .co { display:inline-grid; place-items:center; width:21px; height:21px; border-radius:50%; background:#f5821f; color:#fff; font-size:12px; font-weight:800; flex:none; box-shadow:0 0 0 2px rgba(255,255,255,.9); }
-  .ann { display:flex; flex-direction:column; gap:13px; }
-  .ann .ai { display:flex; gap:10px; align-items:flex-start; font-size:13px; line-height:1.5; color:var(--muted); }
-  .ann .ai b { color:var(--text); }
-  .ann .ai .lk { color:var(--accent); font-weight:700; }
+  .manual-row { display:flex; flex-wrap:wrap; gap:30px; justify-content:center; align-items:flex-start; }
+  .screen { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .screen .cap { font-size:12.5px; font-weight:700; color:var(--muted); }
+  .i { display:inline-block; vertical-align:middle; }
 
   /* Phone mockup — faithful to c3/application (route schedule screen) */
-  .phone { position:relative; width:300px; border-radius:30px; padding:10px 0 14px; border:6px solid #05101d; box-shadow:0 12px 34px rgba(0,0,0,.30); color:#fff; font-size:12px; overflow:hidden;
+  .phone { position:relative; width:390px; border-radius:38px; padding:14px 0 18px; border:8px solid #05101d; box-shadow:0 12px 34px rgba(0,0,0,.30); color:#fff; font-size:13px; overflow:hidden;
     background:#02223C; background-image:linear-gradient(171.8deg, #00213B 20%, #556D7F 100%); }
-  .phone .co { position:absolute; z-index:5; }
+  .phone.light { background:#F3F4F6; background-image:none; color:#000; }
   .p-status { display:flex; justify-content:space-between; align-items:center; padding:2px 16px 6px; font-weight:800; }
   .p-status .r { letter-spacing:2px; opacity:.9; }
   .p-head, .p-dates, .p-prog { position:relative; }
@@ -181,6 +178,7 @@
   .p-cal { display:grid; place-items:center; width:42px; height:40px; border-radius:8px; color:#fff; font-size:16px; }
   .p-date { display:grid; place-items:center; height:40px; padding:0 14px; border-radius:8px; font-weight:700; font-size:15px; color:#fff; }
   .p-date.on { background:#f87400; color:#000; }
+  .p-cal.on { background:#f87400; color:#000; }
   .p-prog { display:flex; align-items:center; gap:8px; padding:0 24px 14px; }
   .p-plabel { color:#f87400; font-weight:700; font-size:12px; }
   .p-bar { flex:1; height:6px; border-radius:3px; background:#fff; overflow:hidden; }
@@ -195,7 +193,45 @@
   .p-title { font-size:15px; font-weight:800; color:#000; margin:2px 0 4px; line-height:1.2; }
   .p-addr { display:flex; align-items:center; gap:4px; font-size:12px; color:#6D6D72; }
   .p-pts { display:inline-flex; align-items:center; gap:4px; margin-top:8px; height:22px; padding:2px 8px; border-radius:30px; background:#e11d33; color:#fff; font-size:12px; font-weight:700; }
-  .p-chev { position:absolute; top:16px; right:14px; color:#6D6D72; font-weight:800; }
+  .p-chev { position:absolute; top:16px; right:14px; color:#6D6D72; }
+  .p-head .ic { display:grid; place-items:center; }
+  /* Add Location entry card (bottom of Route list) */
+  .p-addcard { display:flex; align-items:center; gap:14px; background:rgba(255,255,255,.12); border-radius:8px; padding:14px; margin:0 14px; color:#fff; box-shadow:0 4px 16px rgba(0,0,0,.1); }
+  .p-addbadge { width:36px; height:36px; border-radius:18px; border:2px solid #fff; display:grid; place-items:center; flex:none; }
+  .p-addlabel { flex:1; font-size:15px; font-weight:700; }
+
+  /* Add Location screen */
+  .al-head { display:flex; align-items:center; gap:8px; padding:2px 12px 10px; }
+  .al-head .ic { width:28px; display:grid; place-items:center; color:#000; }
+  .al-head .ht2 { flex:1; text-align:center; font-size:16px; font-weight:800; color:#000; }
+  .al-head .sp { width:28px; }
+  .al-body { padding:0 14px; display:flex; flex-direction:column; gap:10px; }
+  .al-card { background:#fff; border:1px solid #E5E7EB; border-radius:8px; padding:14px; }
+  .al-name { font-size:15px; font-weight:800; color:#000; }
+  .al-sub { font-size:12px; color:#6D6D72; margin-top:5px; }
+  .al-addr { display:flex; align-items:center; gap:4px; font-size:12px; color:#6D6D72; margin-top:4px; }
+  .al-panel { margin:14px 14px 0; background:#fff; border-radius:16px; box-shadow:0 -2px 12px rgba(0,0,0,.08); padding:14px; display:flex; flex-direction:column; gap:10px; }
+  .al-ptitle { font-size:13px; font-weight:800; color:#000; }
+  .al-btn { border:0; border-radius:8px; padding:12px; text-align:center; font-size:14px; font-weight:800; }
+  .al-primary { background:#f87400; color:#fff; }
+  .al-secondary { background:#fff; color:#00213B; border:1.5px solid #00213B; }
+  .al-search { display:flex; align-items:center; gap:8px; background:#F3F4F6; border:1px solid #E5E7EB; border-radius:10px; padding:10px 12px; color:#8E8E93; font-size:13px; }
+  .al-findmap { background:#00213B; color:#fff; }
+
+  /* Weekly shifts screen */
+  .wk-card { margin:14px; background:#fff; border-radius:16px; padding:16px; color:#000; }
+  .wk-title { font-size:18px; font-weight:800; }
+  .wk-title .rng { font-size:14px; font-weight:400; color:#8E8E93; }
+  .wk-meta { margin-top:14px; font-size:13px; color:#000; }
+  .wk-meta b { font-weight:800; }
+  .wk-day { border:1px solid #E5E7EB; border-radius:8px; margin-top:14px; padding:14px 16px; display:flex; align-items:center; gap:14px; }
+  .wk-daylabel { font-size:15px; font-weight:800; width:88px; }
+  .wk-daylabel .wd { font-weight:400; color:#8E8E93; }
+  .wk-sum { flex:1; }
+  .wk-sumtime { font-size:14px; font-weight:700; }
+  .wk-sumoff { color:#8E8E93; font-weight:400; }
+  .wk-badge { display:inline-flex; align-items:center; gap:4px; margin-top:5px; font-size:12px; font-weight:700; color:#f87400; }
+  .wk-got { margin-top:18px; background:#f87400; color:#fff; font-weight:800; border-radius:12px; padding:15px; text-align:center; font-size:15px; }
 
   footer { margin-top:16px; font-size:11px; color:var(--muted); text-align:center; }
 </style>
@@ -275,25 +311,31 @@
               <td><span class="rab max">Maximize</span></td>
             </tr>
             <tr>
-              <td class="factor">2. Cash Capacity</td>
+              <td class="factor">2. Collection Revenue</td>
+              <td><b>Maximize Collection Revenue</b><br><span class="muted">= Collection Yield × Days Since Last Visit<br>Collection Yield = collection revenue per day</span></td>
+              <td><b>Machines ranking in the top 25% by collection revenue</b></td>
+              <td><span class="rab max">Maximize</span></td>
+            </tr>
+            <tr>
+              <td class="factor">3. Cash Capacity</td>
               <td><b>Collect before the cash limit is exceeded</b><br><span class="muted">Default is $500 / Changer is $1,000</span></td>
               <td><b>Projected to reach the cash threshold</b></td>
               <td><span class="rab must">Mandatory</span></td>
             </tr>
             <tr>
-              <td class="factor">3. Minimum Frequency</td>
+              <td class="factor">4. Minimum Frequency</td>
               <td><b>Every 3 months or per client contract</b><br><span class="muted">e.g., H-Mart weekly, malls monthly</span></td>
               <td><b>Minimum frequency reached</b></td>
               <td><span class="rab must">Mandatory</span></td>
             </tr>
             <tr>
-              <td class="factor">4. Work Instructions</td>
+              <td class="factor">5. Work Instructions</td>
               <td><b>Priority Actions at Each Location</b><br><span class="muted">e.g., RBC IP Products Installed</span></td>
               <td><b>Varies by work instruction</b></td>
               <td><span class="rab max">Maximize</span></td>
             </tr>
             <tr>
-              <td class="factor">5. Others</td>
+              <td class="factor">6. Others</td>
               <td><b>New Locations’ Installation</b></td>
               <td><b>Assigned manually for installation support</b></td>
               <td><span class="rab na">Out of scope</span></td>
