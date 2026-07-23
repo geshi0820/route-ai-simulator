@@ -62,7 +62,8 @@
   .hero-note b { color:var(--accent); font-weight:700; }
 
   /* KPI tiles */
-  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-top:14px; }
+  .kpis { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:12px; margin-top:14px; }
+  @media (max-width:820px) { .kpis { grid-template-columns:repeat(2, 1fr); } }
   .kpi { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:13px 16px 12px; box-shadow:0 1px 3px rgba(20,30,50,.05); }
   .kpi.hl { background:var(--wash); border-color:color-mix(in srgb, var(--accent) 34%, var(--border)); }
   .kpi .k { font-size:11px; font-weight:600; color:var(--muted); }
@@ -469,6 +470,7 @@ function optimize() {
   const cap = dayBudget;
   // Use reward=-1 as a sentinel so a forced (mandatory) route with 0 reward can still be chosen.
   let best = { order: [], travel: 0, work: 0, reward: -1, total: 0, chosen: [] };
+  let calc = 0;   // number of route permutations evaluated (search size)
   for (let mask = 0; mask < (1 << stopIds.length); mask++) {
     const subset = stopIds.filter((_, i) => mask & (1 << i));
     if (!must.every(m => subset.includes(m))) continue;   // only routes that include all mandatory stops (Bank / mandatory locations)
@@ -476,6 +478,7 @@ function optimize() {
     subset.forEach(id => (byId[id].machines || []).forEach(m => items.push({ pt: m.pt, min: (TYPES[m.type] || TYPES[0]).min, ref: m })));
     const dp = knapDP(items, cap);
     for (const perm of permute(subset)) {
+      calc++;
       const seq = ['home', ...perm, 'home'];
       let travel = 0;
       for (let i = 0; i < seq.length - 1; i++) travel += travelTime(seq[i], seq[i + 1], byId);
@@ -493,6 +496,7 @@ function optimize() {
   }
   // When the mandatory stops can't be covered within the working time
   if (best.reward < 0) best = { order: [], travel: 0, work: 0, reward: 0, total: 0, chosen: [], mustFail: must.length > 0 };
+  best.calc = calc;
   return best;
 }
 
@@ -631,6 +635,7 @@ function updateKPIs(b) {
     { k: 'Working time', v: rev ? (hasRoute ? b.total : 0) : q, s: `/ ${dayBudget} min`, cls: '' },
     { k: 'Travel + work', v: rev ? `${b.travel}+${b.work}` : q, s: 'min (travel + work)', cls: 'small' },
     { k: 'Locations visited', v: rev ? locsVisited : q, s: `/ ${locs.length} · mandatory ${mustCount}`, cls: '' },
+    { k: 'Calculations', v: (b.calc || 0).toLocaleString(), s: 'route combinations evaluated', cls: 'small' },
   ];
   document.getElementById('kpis').innerHTML = kpis.map(x =>
     `<div class="kpi${x.hl ? ' hl' : ''}"><div class="k">${x.k}</div><div class="v ${x.cls}">${x.v}</div><div class="s">${x.s}</div></div>`).join('');
