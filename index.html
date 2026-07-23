@@ -284,7 +284,7 @@
     <p class="note">Which tour route — always passing through Home (and Bank when required) and the <b style="color:var(--must)">mandatory locations (purple)</b> — maximizes <b>points</b> within the working time? Click “Show answer” to reveal the <b style="color:var(--accent)">optimal route (blue line) and selected machines (blue rings)</b>.</p>
     <div class="board-wrap"><div id="board-a"></div></div>
     <div id="route"></div>
-    <p class="note" style="margin:12px 0 0">The small circles inside a location are <b>machines</b>: <b>color = work time</b> (per type, set in Parameters), <b>number = points</b>. Roads: <b style="color:var(--road)">gray = normal</b> / <b style="color:var(--bad)">red = traffic (2× travel cost)</b>. <b>Home is the start/end depot</b>; <b style="color:var(--must)">purple = must-visit</b> (mandatory stops — locations and/or Bank, toggled in Parameters). Drag any node to move it; the chart updates live.</p>
+    <p class="note" style="margin:12px 0 0">The small circles inside a location are <b>machines</b>: <b>color = work time</b> (per type, set in Parameters), <b>number = points</b>. Roads: <b style="color:var(--road)">gray = normal</b> / <b style="color:var(--bad)">red = traffic (2× travel cost)</b>. <b>Home is the start/end depot</b>; <b style="color:var(--must)">purple = must-visit</b> (mandatory stops — locations and/or Bank, toggled in Parameters). The <b>Bank has a fixed 30 min service time</b>. Drag any node to move it; the chart updates live.</p>
     <div class="legend">
       <span class="chip"><i style="background:transparent;border:1.5px solid var(--node)"></i>Home / Bank (depot)</span>
       <span class="chip"><i style="background:transparent;border:1.5px solid var(--node)"></i>Location</span>
@@ -383,6 +383,7 @@ let nLoc = 5;              // number of locations (parameter)
 let nMust = 1;             // number of mandatory locations (parameter)
 let jamRate = 0.20;        // traffic (jam) ratio (parameter)
 const MIN_PER_PX = 0.2;    // on-screen distance (px) → travel time (min)
+const BANK_MIN = 30;       // fixed service time (min) spent at the Bank when visited
 
 const STATE = {
   normal: { color: 'var(--road)', mult: 1 },
@@ -487,20 +488,22 @@ function optimize() {
     subset.forEach(id => (byId[id].machines || []).forEach(m => items.push({ pt: m.pt, min: (TYPES[m.type] || TYPES[0]).min, ref: m })));
     const dp = knapDP(items, cap);
     calc += items.length * (cap + 1);   // machine-selection (0/1 knapsack) DP cells
+    const bankSvc = subset.includes('bank') ? BANK_MIN : 0;   // fixed service time at the Bank
     for (const perm of permute(subset)) {
       calc++;
       const seq = ['home', ...perm, 'home'];
       let travel = 0;
       for (let i = 0; i < seq.length - 1; i++) travel += tt[seq[i]][seq[i + 1]];
-      if (travel > cap) continue;
-      const rem = cap - travel;
+      const used = travel + bankSvc;
+      if (used > cap) continue;
+      const rem = cap - used;
       const reward = dp.table[dp.n][rem];
       if (reward > best.reward) {
         const { chosen, work } = knapPick(dp, items, rem);
-        best = { order: perm, travel, work, reward, total: travel + work, chosen };
+        best = { order: perm, travel, work: work + bankSvc, reward, total: used + work, chosen };
       } else if (reward === best.reward) {
         const { chosen, work } = knapPick(dp, items, rem);
-        if (travel + work < best.total) best = { order: perm, travel, work, reward, total: travel + work, chosen };
+        if (used + work < best.total) best = { order: perm, travel, work: work + bankSvc, reward, total: used + work, chosen };
       }
     }
   }
