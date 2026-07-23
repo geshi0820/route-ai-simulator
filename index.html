@@ -262,6 +262,8 @@
   <div class="panel">
     <h3>Parameters</h3>
     <div class="tools">
+      <div class="tool"><label>Locations <b id="locVal">5</b></label><input type="range" id="locN" min="3" max="7" step="1" value="5"></div>
+      <div class="tool"><label>Mandatory <b id="mustVal">1</b></label><input type="range" id="mustSlider" min="0" max="7" step="1" value="1"></div>
       <div class="tool"><label>Edge scale <b id="scaleVal">×1.0</b></label><input type="range" id="scale" min="0.2" max="3" step="0.1" value="1"></div>
       <div class="tool"><label>Working time <b id="budVal">480</b> min</label><input type="range" id="budget" min="120" max="1200" step="30" value="480"></div>
       <div class="tool mtypes"><span class="mtlbl">Machine types — color · work min</span>
@@ -376,6 +378,8 @@ function textOn(hex) {
 let edgeScale = 1;
 let dayBudget = 480;       // daily working time (min) = 8 hours
 let showAnswer = false;    // toggle for the answer (blue route + KPIs); default = hidden
+let nLoc = 5;              // number of locations (parameter)
+let nMust = 1;             // number of mandatory locations (parameter)
 const MIN_PER_PX = 0.2;    // on-screen distance (px) → travel time (min)
 
 const STATE = {
@@ -392,8 +396,8 @@ const pairKey = (a, b) => [a, b].sort().join('|');
 function randomize() {
   // Home is fixed at bottom-center as a depot; locations get random position / machine count / type / points
   NODES = [{ id: 'home', kind: 'home', name: 'Home', x: W / 2, y: H - 60 }];
-  const names = ['A', 'B', 'C', 'D', 'E'];
-  const count = rint(4, 5);             // 4-5 locations
+  const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const count = Math.min(nLoc, names.length);   // location count (parameter)
   const placed = [{ x: W / 2, y: H - 60 }];
   const place = () => {
     let x, y, t = 0;
@@ -409,9 +413,9 @@ function randomize() {
     const m = rint(1, 10);              // 1-10 machines
     NODES.push({ id: names[i], kind: 'loc', name: names[i], x: p.x, y: p.y, machines: Array.from({ length: m }, mk), must: false });
   }
-  // Mark 1-2 random locations as mandatory (must be visited)
+  // Mark N random locations as mandatory (parameter)
   const locNodes = NODES.filter(n => n.kind === 'loc');
-  const mustN = Math.min(locNodes.length, rint(1, 2));
+  const mustN = Math.min(locNodes.length, nMust);
   locNodes.slice().sort(() => Math.random() - 0.5).slice(0, mustN).forEach(n => n.must = true);
 
   // Edges (complete graph) + random traffic (rate 10-40%, randomized each time)
@@ -468,6 +472,10 @@ function optimize() {
   const stopIds = stops.map(n => n.id);
   const must = stops.filter(n => n.kind === 'bank' || n.must).map(n => n.id);
   const cap = dayBudget;
+  // Precompute travel-time matrix (home + stops) so the hot loop is O(1) per edge.
+  const matIds = ['home', ...stopIds];
+  const tt = {};
+  for (const a of matIds) { tt[a] = {}; for (const b of matIds) tt[a][b] = a === b ? 0 : travelTime(a, b, byId); }
   // Use reward=-1 as a sentinel so a forced (mandatory) route with 0 reward can still be chosen.
   let best = { order: [], travel: 0, work: 0, reward: -1, total: 0, chosen: [] };
   let calc = 0;   // number of route permutations evaluated (search size)
@@ -481,7 +489,7 @@ function optimize() {
       calc++;
       const seq = ['home', ...perm, 'home'];
       let travel = 0;
-      for (let i = 0; i < seq.length - 1; i++) travel += travelTime(seq[i], seq[i + 1], byId);
+      for (let i = 0; i < seq.length - 1; i++) travel += tt[seq[i]][seq[i + 1]];
       if (travel > cap) continue;
       const rem = cap - travel;
       const reward = dp.table[dp.n][rem];
@@ -674,6 +682,22 @@ document.addEventListener('pointermove', e => {
   render();
 });
 document.addEventListener('pointerup', () => { drag = null; document.body.style.cursor = ''; });
+
+// Location count (regenerates the network) & mandatory count (re-picks among current locations)
+const locNEl = document.getElementById('locN'), locVal = document.getElementById('locVal');
+const mustEl = document.getElementById('mustSlider'), mustVal = document.getElementById('mustVal');
+locNEl.addEventListener('input', () => {
+  nLoc = Number(locNEl.value); locVal.textContent = nLoc;
+  if (nMust > nLoc) { nMust = nLoc; mustEl.value = nMust; mustVal.textContent = nMust; }
+  randomize(); render();
+});
+mustEl.addEventListener('input', () => {
+  nMust = Math.min(Number(mustEl.value), nLoc); mustEl.value = nMust; mustVal.textContent = nMust;
+  const locs = NODES.filter(n => n.kind === 'loc');
+  locs.forEach(n => n.must = false);
+  locs.slice().sort(() => Math.random() - 0.5).slice(0, nMust).forEach(n => n.must = true);
+  render();
+});
 
 const scaleEl = document.getElementById('scale'), scaleVal = document.getElementById('scaleVal');
 scaleEl.addEventListener('input', () => { edgeScale = Number(scaleEl.value); scaleVal.textContent = '×' + edgeScale.toFixed(1); render(); });
