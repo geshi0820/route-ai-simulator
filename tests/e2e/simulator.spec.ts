@@ -19,6 +19,38 @@ async function boardWithMandatory(page: Page, want = 1) {
   throw new Error(`mandatory machines never reached ${want}`);
 }
 
+/** Regenerate until `want` distinct locations are forced mandatory by a machine. */
+async function stopsForcedByMachine(page: Page, want: number) {
+  for (let i = 0; i < 160; i++) {
+    const ids = await page.evaluate(() =>
+      NODES.filter((n: any) => n.kind === 'loc' && n.machines.some((m: any) => m.must))
+        .map((n: any) => n.id));
+    if (ids.length >= want) return ids as string[];
+    await page.click('#reroll');
+  }
+  throw new Error(`never reached ${want} stops forced by a machine`);
+}
+
+/** Regenerate until the board has mandatory machines *and* the optimum picks a
+    non-mandatory one too. A blue ring only ever marks a non-forced pick, so a
+    board where every pick is forced — or that is infeasible — has none to find. */
+async function boardWithBothRings(page: Page) {
+  for (let i = 0; i < 120; i++) {
+    const r = await page.evaluate(() => {
+      const must = NODES.filter((x: any) => x.kind === 'loc')
+        .reduce((a: number, x: any) => a + x.machines.filter((m: any) => m.must).length, 0);
+      const best = optimize();
+      const free = best.order.length === 0
+        ? 0
+        : best.chosen.filter((it: any) => !it.ref.must).length;
+      return { must, free };
+    });
+    if (r.must >= 1 && r.free >= 1) return r.must;
+    await page.click('#reroll');
+  }
+  throw new Error('no board with both a mandatory machine and a non-mandatory pick');
+}
+
 /** The rings drawn around machine circles, by stroke colour. */
 function ringsByColour(page: Page) {
   return page.evaluate(() => {
@@ -72,44 +104,56 @@ test('E1: 機械の丸に 0〜10 の数字だけが出て、2 桁も円からは
 
 test('E2: 必須マシンには紫の輪が付き、答えを出す前から見えている', async ({ page }) => {
   const want = await boardWithMandatory(page, 1);
-  expect(await page.locator('#reveal')).toHaveText(/Show answer/);
+  await expect(page.locator('#reveal')).toHaveText(/Show answer/);
   const rings = await ringsByColour(page);
   expect(rings.must, '紫の輪の数が必須マシンの数と合わない').toBe(want);
   expect(rings.accent, '答えを出す前なのに青い輪が出ている').toBe(0);
 });
 
 test('E3: 答えを出すと選ばれた機械に青い輪が付き、必須マシンは紫のまま', async ({ page }) => {
-  const want = await boardWithMandatory(page, 1);
+  const want = await boardWithBothRings(page);
   await page.click('#reveal');
   const rings = await ringsByColour(page);
   expect(rings.must, '必須マシンの輪が青に変わった').toBe(want);
   expect(rings.accent, '選ばれた機械に青い輪が付いていない').toBeGreaterThan(0);
 });
 
-test('E4: 必須マシンを持つ拠点は自動で紫になり、その mandatory トグルは ON 固定で淡い', async ({ page }) => {
-  await boardWithMandatory(page, 1);
+test('E4: 必須マシンを持つ拠点は自動で紫になり、機械だけが必須にしている間はトグルが ON 固定で淡い', async ({ page }) => {
+  // 機械が必須にしている拠点が 2 つ以上ある盤面にして、そのうち 1 つだけ人も mandatory を付ける。
+  // 2 つ必要なのは、「人が付けていない側はロックされる」を空振りさせないため。
+  const forcedIds = await stopsForcedByMachine(page, 2);
+  await page.evaluate((id) => {
+    // スライダーが既に別の拠点を mandatory にしていることがあるので、まず人の指定を揃える
+    NODES.filter((n: any) => n.kind === 'loc').forEach((n: any) => { n.must = n.id === id; });
+    render();
+  }, forcedIds[0]);
   const r = await page.evaluate(() => {
-    const out = { forced: 0, purple: 0, checked: 0, disabled: 0, dimmed: 0, freeDimmed: 0 };
+    const out = { byMachine: 0, purple: 0, checked: 0, locked: 0, dimmed: 0, mine: 0, mineLocked: 0, freeDimmed: 0 };
     NODES.filter((n: any) => n.kind === 'loc').forEach((n: any) => {
-      const forced = n.machines.some((m: any) => m.must);
+      const byMachine = n.machines.some((m: any) => m.must);
       const g = document.querySelector(`#board-a svg g[data-node="${n.id}"] circle`);
       const box = document.querySelector(`input[data-must="${n.id}"]`) as HTMLInputElement;
       const dim = Number(getComputedStyle(box.closest('.miniswitch')!).opacity) < 0.6;
-      if (forced) {
-        out.forced++;
+      if (byMachine) {
+        out.byMachine++;
         if ((g?.getAttribute('stroke') ?? '').includes('--must')) out.purple++;
         if (box.checked) out.checked++;
-        if (box.disabled) out.disabled++;
-        if (dim) out.dimmed++;
+        if (n.must) { out.mine++; if (box.disabled) out.mineLocked++; }
+        else { if (box.disabled) out.locked++; if (dim) out.dimmed++; }
       } else if (dim) out.freeDimmed++;
     });
     return out;
   });
-  expect(r.forced).toBeGreaterThan(0);
-  expect(r.purple, '必須マシンを持つ拠点が紫になっていない').toBe(r.forced);
-  expect(r.checked, 'トグルが ON になっていない').toBe(r.forced);
-  expect(r.disabled, 'トグルが触れてしまう').toBe(r.forced);
-  expect(r.dimmed, 'トグルが淡くなっていない').toBe(r.forced);
+  expect(r.byMachine).toBeGreaterThan(0);
+  expect(r.purple, '必須マシンを持つ拠点が紫になっていない').toBe(r.byMachine);
+  expect(r.checked, 'トグルが ON になっていない').toBe(r.byMachine);
+  // 機械だけが必須にしている間は、人のものではないので触れない
+  expect(r.locked, '機械が必須にしている拠点のトグルが触れてしまう').toBe(r.byMachine - r.mine);
+  expect(r.dimmed, 'そのトグルが淡くなっていない').toBe(r.byMachine - r.mine);
+  // 人が自分で付けた分は、機械が必須にしていても外せる（閉じ込めない）
+  expect(r.mine, '人が付けた状態を作れていない').toBeGreaterThan(0);
+  expect(r.byMachine - r.mine, 'ロックされる側が 1 件も無い盤面で検証している').toBeGreaterThan(0);
+  expect(r.mineLocked, '人が自分で付けた mandatory が外せなくなっている').toBe(0);
   expect(r.freeDimmed, '人が切り替えられるトグルまで淡くなっている').toBe(0);
 });
 

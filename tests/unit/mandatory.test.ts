@@ -77,6 +77,21 @@ describe('最適化が必須を守る（optimize）', () => {
     }
   });
 
+  it('U13: travel + work が total と一致する（必須マシンの時間が二重計上も抜けもしない）', async () => {
+    app = await loadApp();
+    for (let round = 0; round < 40; round++) {
+      const best = app.read<any>('optimize()');
+      if (best.order.length > 0) {
+        // total を信じずに内訳から組み直す。used から forcedMin が抜けると、
+        // total が過少申告になって `total <= budget` だけでは素通りする。
+        expect(best.travel + best.work, 'travel + work が total と合わない').toBe(best.total);
+        expect(best.travel + best.work, '実際に使う時間が working time を超えている')
+          .toBeLessThanOrEqual(app.read<number>('dayBudget'));
+      }
+      app.regenerate();
+    }
+  });
+
   it('U12: 必須マシンの作業時間は先に引かれ、合計は working time を超えない', async () => {
     app = await loadApp();
     for (let round = 0; round < 40; round++) {
