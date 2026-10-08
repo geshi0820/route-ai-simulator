@@ -1,0 +1,17 @@
+{
+  "name": "route-ai-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive Route AI algorithm simulator (tour optimization demo)",
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.0",
+    "jsdom": "^27.0.0",
+    "vitest": "^3.2.0"
+  }
+}
