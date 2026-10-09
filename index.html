@@ -658,7 +658,8 @@ function renderControls() {
        input fires no change event, and only the Mandatory slider clears it). */
     const forcedByMachine = !isBank && machineMust(n);
     const locked = forcedByMachine && !n.must;
-    const toggle = `<label class="miniswitch"><input type="checkbox" data-must="${n.id}"${n.must || forcedByMachine ? ' checked' : ''}${locked ? ' disabled' : ''}><span>mandatory</span></label>`;
+    const why = locked ? ' title="A machine here must be serviced, so this stop is mandatory"' : '';
+    const toggle = `<label class="miniswitch"${why}><input type="checkbox" data-must="${n.id}"${n.must || forcedByMachine ? ' checked' : ''}${locked ? ' disabled' : ''}><span>mandatory</span></label>`;
     const steppers = isBank ? '' :
       `<span class="stepper"><button data-m="${n.id}" data-d="-1" title="remove machine">−</button><span class="cnt">${n.machines.length}</span><button data-m="${n.id}" data-d="1" title="add machine">＋</button></span>`;
     return `<div class="lc">${label}${toggle}<span class="spc"></span>${steppers}</div>`;
