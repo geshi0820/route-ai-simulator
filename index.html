@@ -119,6 +119,9 @@
   .miniswitch input:checked { background:var(--must); }
   .miniswitch input::after { content:""; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:#fff; transition:left .15s; }
   .miniswitch input:checked::after { left:14px; }
+  /* A stop forced mandatory by one of its machines: on, and not the person's to turn off. */
+  .miniswitch:has(input:disabled) { cursor:default; opacity:0.55; }
+  .miniswitch input:disabled { cursor:default; }
 
   /* Legend chips */
   .legend { display:flex; gap:7px; flex-wrap:wrap; justify-content:center; margin-top:14px; }
@@ -151,6 +154,9 @@
   .ltable td.factor { background:var(--panel-2); font-weight:700; color:var(--text); white-space:nowrap; }
   .ltable td b { color:var(--text); }
   .ltable .muted { color:var(--muted); }
+  .ltable td.pts { font-weight:800; color:var(--accent); text-align:center; white-space:nowrap; }
+  .ltable td.pts.must { color:var(--must); }
+  .mustword, .logic .intro b.mustword, .logic .foot b.mustword { color:var(--must); }
   .logic .foot { margin-top:14px; font-size:12px; color:var(--muted); }
   .logic .warn { color:var(--bad); font-weight:700; }
 
@@ -246,7 +252,7 @@
 
   <div class="tabs">
     <button class="tab active" data-tab="sim">🧭 Simulator</button>
-    <button class="tab" data-tab="logic">📋 Scoring Logic (3pt)</button>
+    <button class="tab" data-tab="logic">📋 Scoring Logic (0–10pt)</button>
   </div>
 
   <section id="tab-sim" class="tabpane">
@@ -263,7 +269,8 @@
     <h3>Parameters</h3>
     <div class="tools">
       <div class="tool"><label>Locations <b id="locVal">5</b></label><input type="range" id="locN" min="3" max="7" step="1" value="5"></div>
-      <div class="tool"><label>Mandatory <b id="mustVal">1</b></label><input type="range" id="mustSlider" min="0" max="7" step="1" value="1"></div>
+      <div class="tool"><label>Mandatory stops <b id="mustVal">1</b></label><input type="range" id="mustSlider" min="0" max="7" step="1" value="1"></div>
+      <div class="tool"><label>Must-service machines <b id="mustMVal">2</b></label><input type="range" id="mustMachines" min="0" max="12" step="1" value="2"></div>
       <div class="tool"><label>Edge scale <b id="scaleVal">×1.0</b></label><input type="range" id="scale" min="0.2" max="3" step="0.1" value="1"></div>
       <div class="tool"><label>Working time <b id="budVal">480</b> min</label><input type="range" id="budget" min="120" max="1200" step="30" value="480"></div>
       <div class="tool"><label>Traffic <b id="jamVal">20</b>%</label><input type="range" id="jamN" min="0" max="60" step="5" value="20"></div>
@@ -284,7 +291,7 @@
     <p class="note">Which tour route — always passing through Home (and Bank when required) and the <b style="color:var(--must)">mandatory locations (purple)</b> — maximizes <b>points</b> within the working time? Click “Show answer” to reveal the <b style="color:var(--accent)">optimal route (blue line) and selected machines (blue rings)</b>.</p>
     <div class="board-wrap"><div id="board-a"></div></div>
     <div id="route"></div>
-    <p class="note" style="margin:12px 0 0">The small circles inside a location are <b>machines</b>: <b>color = work time</b> (per type, set in Parameters), <b>number = points</b>. Roads: <b style="color:var(--road)">gray = normal</b> / <b style="color:var(--bad)">red = traffic (2× travel cost)</b>. <b>Home is the start/end depot</b>; <b style="color:var(--must)">purple = must-visit</b> (mandatory stops — locations and/or Bank, toggled in Parameters). The <b>Bank has a fixed 30 min service time</b>. Drag any node to move it; the chart updates live.</p>
+    <p class="note" style="margin:12px 0 0">The small circles inside a location are <b>machines</b>: <b>color = work time</b> (per type, set in Parameters), <b>number = points (0–10)</b>, <b class="mustword">purple ring = must be serviced</b> (always 10pt). Roads: <b style="color:var(--road)">gray = normal</b> / <b style="color:var(--bad)">red = traffic (2× travel cost)</b>. <b>Home is the start/end depot</b>; <b style="color:var(--must)">purple = must-visit</b> (mandatory stops — locations and/or Bank, toggled in Parameters). The <b>Bank has a fixed 30 min service time</b>. Drag any node to move it; the chart updates live.</p>
     <div class="legend">
       <span class="chip"><i style="background:transparent;border:1.5px solid var(--node)"></i>Home / Bank (depot)</span>
       <span class="chip"><i style="background:transparent;border:1.5px solid var(--node)"></i>Location</span>
@@ -292,6 +299,7 @@
       <span class="chip"><i class="line" style="background:var(--road)"></i>Road: normal</span>
       <span class="chip"><i class="line" style="background:var(--bad)"></i>Road: traffic</span>
       <span class="chip"><i class="line" style="background:var(--accent)"></i>Optimal route</span>
+      <span class="chip"><i style="background:transparent;border:2px solid var(--must)"></i>Must-service machine (pinned to 10pt)</span>
       <span class="chip"><i style="background:transparent;border:2px solid var(--accent)"></i>Selected machine</span>
     </div>
   </div>
@@ -302,52 +310,58 @@
   <section id="tab-logic" class="tabpane" hidden>
     <div class="panel logic">
       <h2>Strategy: Maximize Machine Appeal and Revenue While Maintaining Solid Compliance.</h2>
-      <div class="sub">Rules for Assigning 3pt to Machines and Actions</div>
-      <p class="intro">In the simulator, a machine or action worth <b>3pt</b> represents a high-priority target. These are the real-world rules that decide when 3pt is assigned.</p>
+      <div class="sub">Rules for Assigning 0–10pt to Machines and Actions</div>
+      <p class="intro">In the simulator, a machine carries <b>0–10pt</b>: the sum of what factors 1, 2 and 5 are worth for it. Each contributes a range, so every value from <b>0</b> to <b>10</b> is reachable — <b>0pt</b> is a machine not worth servicing today. Factors 3 and 4 add nothing; they make the machine <b class="mustword">mandatory (purple ring)</b> and pin it to <b>10pt</b>, because it has to be serviced whatever the points say.</p>
       <div class="ltwrap">
         <table class="ltable">
-          <thead><tr><th>Factors</th><th>Base Logic</th><th>3pt Trigger</th><th>Route App</th></tr></thead>
+          <thead><tr><th>Factors</th><th>Base Logic</th><th>Trigger</th><th>Points</th><th>Route App</th></tr></thead>
           <tbody>
             <tr>
               <td class="factor">1. Revenue Lift</td>
               <td><b>Service the machine before revenue declines</b><br><span class="muted">= Revenue* × Lift Rate × Days Since Last Visit</span></td>
               <td><b>Machines ranking in the top 25% by revenue lift</b><br><span class="muted">RBC: Fast decay / KDT: Slow decay / Other: No decay</span></td>
+              <td class="pts">0–4</td>
               <td><span class="rab max">Maximize</span></td>
             </tr>
             <tr>
               <td class="factor">2. Collection Revenue</td>
               <td><b>Maximize Collection Revenue</b><br><span class="muted">= Collection Yield × Days Since Last Visit<br>Collection Yield = collection revenue per day</span></td>
               <td><b>Machines ranking in the top 25% by collection revenue</b></td>
+              <td class="pts">0–4</td>
               <td><span class="rab max">Maximize</span></td>
             </tr>
             <tr>
               <td class="factor">3. Cash Capacity</td>
               <td><b>Collect before the cash limit is exceeded</b><br><span class="muted">Default is $500 / Changer is $1,000</span></td>
               <td><b>Projected to reach the cash threshold</b></td>
+              <td class="pts must">10</td>
               <td><span class="rab must">Mandatory</span></td>
             </tr>
             <tr>
               <td class="factor">4. Minimum Frequency</td>
               <td><b>Every 3 months or per client contract</b><br><span class="muted">e.g., H-Mart weekly, malls monthly</span></td>
               <td><b>Minimum frequency reached</b></td>
+              <td class="pts must">10</td>
               <td><span class="rab must">Mandatory</span></td>
             </tr>
             <tr>
               <td class="factor">5. Work Instructions</td>
               <td><b>Priority Actions at Each Location</b><br><span class="muted">e.g., RBC IP Products Installed</span></td>
               <td><b>Varies by work instruction</b></td>
+              <td class="pts">0–2</td>
               <td><span class="rab max">Maximize</span></td>
             </tr>
             <tr>
               <td class="factor">6. Others</td>
               <td><b>New Location Installation</b><br><span class="muted">Counted when an Overall Report is submitted</span></td>
               <td><b>Overall Report submitted</b></td>
+              <td class="pts">—</td>
               <td><span class="rab na">Out of scope</span></td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="foot">*) Revenue = Collected Cash + Cash in Machine + Card Revenue <span class="warn">(Not just collected cash)</span>.</p>
+      <p class="foot">Factors 1, 2 and 5 add up to the <b>10pt</b> ceiling: 4 + 4 + 2, each from 0 up, so any whole number in between is a real score. Factors 3 and 4 do not add — they pin the machine to <b>10pt</b> and ring it <b class="mustword">purple</b>.<br>*) Revenue = Collected Cash + Cash in Machine + Card Revenue <span class="warn">(Not just collected cash)</span>.</p>
     </div>
   </section>
 
@@ -367,7 +381,24 @@ const TYPES = [
   { color: '#ef9b43', min: 20 }, // orange = 20 min
 ];
 const randType = () => Math.floor(Math.random() * TYPES.length);
-const mk = () => ({ pt: pick([1, 3]), type: randType() }); // points = 1 or 3, random type
+/* Fisher-Yates. `sort(() => Math.random() - 0.5)` is not a shuffle: the comparator
+   is inconsistent, so the sort leaves most elements near where they started and
+   taking the first k over-samples the head — measured 3.2x on the first machine. */
+const shuffled = arr => {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+/* A machine starts ordinary. Which ones must be serviced is decided afterwards,
+   by count, in `assignMustMachines` — not by a per-machine roll, so the number on
+   screen is the number the person set, and setting it to 0 really means none. */
+const mk = () => {
+  const pt = rint(0, 10);
+  return { pt, base: pt, type: randType(), must: false };   // `base` is its own score, kept for when a pin is lifted
+};
 
 function textOn(hex) {
   const c = hex.replace('#', '');
@@ -381,6 +412,7 @@ let dayBudget = 480;       // daily working time (min) = 8 hours
 let showAnswer = false;    // toggle for the answer (blue route + KPIs); default = hidden
 let nLoc = 5;              // number of locations (parameter)
 let nMust = 1;             // number of mandatory locations (parameter)
+let nMustMachines = 2;     // number of machines that must be serviced (parameter)
 let jamRate = 0.20;        // traffic (jam) ratio (parameter)
 const MIN_PER_PX = 0.2;    // on-screen distance (px) → travel time (min)
 const BANK_MIN = 30;       // fixed service time (min) spent at the Bank when visited
@@ -419,7 +451,8 @@ function randomize() {
   // Mark N random locations as mandatory (parameter)
   const locNodes = NODES.filter(n => n.kind === 'loc');
   const mustN = Math.min(locNodes.length, nMust);
-  locNodes.slice().sort(() => Math.random() - 0.5).slice(0, mustN).forEach(n => n.must = true);
+  shuffled(locNodes).slice(0, mustN).forEach(n => n.must = true);
+  assignMustMachines();
 
   // Edges (complete graph) + traffic at the current ratio (parameter)
   EDGES = [];
@@ -430,6 +463,26 @@ function randomize() {
 
 // ============ Optimization ============
 const idMap = () => Object.fromEntries(NODES.map(n => [n.id, n]));
+// A stop is mandatory when the person marked it, or when it holds a machine that must be serviced.
+const machineMust = n => (n.machines || []).some(m => m.must);
+
+/* Exactly `nMustMachines` machines must be serviced, drawn from every machine on
+   the board. A machine that must be serviced is pinned to 10pt — it is the cash
+   limit or the minimum frequency talking, not the points. */
+function assignMustMachines() {
+  const all = [];
+  NODES.filter(n => n.kind === 'loc').forEach(n => (n.machines || []).forEach(m => {
+    m.must = false;
+    m.pt = m.base ?? m.pt;   // lifting the pin gives the machine its own score back
+    all.push(m);
+  }));
+  /* The slider can ask for more than the board holds; the count it shows has to be
+     the count on the board, so clamp here and let the caller read it back. */
+  nMustMachines = Math.min(nMustMachines, all.length);
+  shuffled(all).slice(0, nMustMachines).forEach(m => { m.must = true; m.pt = 10; });
+  return nMustMachines;
+}
+const mustStop = n => n.must || machineMust(n);
 function edgeStateOf(a, b) {
   const e = EDGES.find(x => (x.from === a && x.to === b) || (x.from === b && x.to === a));
   return e ? e.state : 'normal';
@@ -472,7 +525,7 @@ function optimize() {
   // Candidate stops = locations (+ Bank only when required). Bank & mandatory locations are always in the route.
   const stops = NODES.filter(n => n.kind === 'loc' || (n.kind === 'bank' && n.must));
   const stopIds = stops.map(n => n.id);
-  const must = stops.filter(n => n.kind === 'bank' || n.must).map(n => n.id);
+  const must = stops.filter(n => n.kind === 'bank' || mustStop(n)).map(n => n.id);
   const cap = dayBudget;
   // Precompute travel-time matrix (home + stops) so the hot loop is O(1) per edge.
   const matIds = ['home', ...stopIds];
@@ -484,8 +537,12 @@ function optimize() {
   for (let mask = 0; mask < (1 << stopIds.length); mask++) {
     const subset = stopIds.filter((_, i) => mask & (1 << i));
     if (!must.every(m => subset.includes(m))) continue;   // only routes that include all mandatory stops (Bank / mandatory locations)
-    const items = [];
-    subset.forEach(id => (byId[id].machines || []).forEach(m => items.push({ pt: m.pt, min: (TYPES[m.type] || TYPES[0]).min, ref: m })));
+    const items = [], forced = [];
+    let forcedMin = 0, forcedPt = 0;
+    subset.forEach(id => (byId[id].machines || []).forEach(m => {
+      const it = { pt: m.pt, min: (TYPES[m.type] || TYPES[0]).min, ref: m };
+      if (m.must) { forcedMin += it.min; forcedPt += it.pt; forced.push(it); } else items.push(it);
+    }));
     const dp = knapDP(items, cap);
     calc += items.length * (cap + 1);   // machine-selection (0/1 knapsack) DP cells
     const bankSvc = subset.includes('bank') ? BANK_MIN : 0;   // fixed service time at the Bank
@@ -494,16 +551,22 @@ function optimize() {
       const seq = ['home', ...perm, 'home'];
       let travel = 0;
       for (let i = 0; i < seq.length - 1; i++) travel += tt[seq[i]][seq[i + 1]];
-      const used = travel + bankSvc;
+      const used = travel + bankSvc + forcedMin;   // mandatory machines are paid for before anything is chosen
       if (used > cap) continue;
       const rem = cap - used;
-      const reward = dp.table[dp.n][rem];
+      const reward = forcedPt + dp.table[dp.n][rem];
+      /* The DP table is non-decreasing in capacity, so the smallest capacity that
+         still scores `reward` is the cheapest way to score it. Reconstructing at
+         `rem` instead would report an arbitrary equal-scoring set, and the
+         Working time KPI would then overstate what the plan actually needs. */
+      let cheap = rem;
+      while (cheap > 0 && dp.table[dp.n][cheap - 1] === dp.table[dp.n][rem]) cheap--;
       if (reward > best.reward) {
-        const { chosen, work } = knapPick(dp, items, rem);
-        best = { order: perm, travel, work: work + bankSvc, reward, total: used + work, chosen };
+        const { chosen, work } = knapPick(dp, items, cheap);
+        best = { order: perm, travel, work: work + bankSvc + forcedMin, reward, total: used + work, chosen: [...forced, ...chosen] };
       } else if (reward === best.reward) {
-        const { chosen, work } = knapPick(dp, items, rem);
-        if (used + work < best.total) best = { order: perm, travel, work: work + bankSvc, reward, total: used + work, chosen };
+        const { chosen, work } = knapPick(dp, items, cheap);
+        if (used + work < best.total) best = { order: perm, travel, work: work + bankSvc + forcedMin, reward, total: used + work, chosen: [...forced, ...chosen] };
       }
     }
   }
@@ -530,8 +593,9 @@ function machinesCircles(cx, cy, machines, chosen) {
       const x = startX + c * (D + GAP);
       const col = (TYPES[m.type] || TYPES[0]).color;
       const on = chosen && chosen.has(m);
-      if (on) svg += `<circle cx="${x}" cy="${y}" r="${S + 3.5}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
-      svg += `<circle cx="${x}" cy="${y}" r="${S}" fill="${col}" stroke="${on ? 'var(--accent)' : 'rgba(0,0,0,.28)'}" stroke-width="${on ? 1.5 : 1}"/>`;
+      const ring = m.must ? 'var(--must)' : on ? 'var(--accent)' : '';
+      if (ring) svg += `<circle cx="${x}" cy="${y}" r="${S + 3.5}" fill="none" stroke="${ring}" stroke-width="2.5"/>`;
+      svg += `<circle cx="${x}" cy="${y}" r="${S}" fill="${col}" stroke="${ring || 'rgba(0,0,0,.28)'}" stroke-width="${ring ? 1.5 : 1}"/>`;
       svg += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="700" fill="${textOn(col)}">${m.pt}</text>`;
     });
   }
@@ -599,8 +663,8 @@ function draw(boardEl, best, byId, showRoute, fid) {
       s += `</g>`;
     } else {
       const { svg: mSvg, R } = machinesCircles(cx, cy, node.machines, chosenSet);
-      const ringCol = node.must ? 'var(--must)' : 'var(--node)';
-      s += `<g data-node="${node.id}" style="cursor:grab" filter="url(#${fid})"><circle cx="${cx}" cy="${cy}" r="${R}" fill="color-mix(in srgb, ${node.must ? 'var(--must)' : 'var(--node)'} 8%, var(--panel))" stroke="${ringCol}" stroke-width="${node.must ? 2.5 : 2}"/>`;
+      const ringCol = mustStop(node) ? 'var(--must)' : 'var(--node)';
+      s += `<g data-node="${node.id}" style="cursor:grab" filter="url(#${fid})"><circle cx="${cx}" cy="${cy}" r="${R}" fill="color-mix(in srgb, ${ringCol} 8%, var(--panel))" stroke="${ringCol}" stroke-width="${mustStop(node) ? 2.5 : 2}"/>`;
       s += mSvg;
       s += `<circle cx="${cx}" cy="${cy - R}" r="11" fill="${ringCol}"/>`;
       s += `<text x="${cx}" y="${cy - R}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="#fff">${node.name}</text></g>`;
@@ -627,7 +691,14 @@ function renderControls() {
   document.getElementById('mctrl').innerHTML = rows.map(n => {
     const isBank = n.kind === 'bank';
     const label = isBank ? `<span class="bic">${BANK_ICON}</span><b>Bank</b>` : `<b>${n.name}</b>`;
-    const toggle = `<label class="miniswitch"><input type="checkbox" data-must="${n.id}"${n.must ? ' checked' : ''}><span>mandatory</span></label>`;
+    /* A machine can force the stop. The box still belongs to the person: it is
+       only locked when the machine alone is holding it on, never when they set
+       it themselves — otherwise their own flag becomes unreachable (a disabled
+       input fires no change event, and only the Mandatory slider clears it). */
+    const forcedByMachine = !isBank && machineMust(n);
+    const locked = forcedByMachine && !n.must;
+    const why = locked ? ' title="A machine here must be serviced, so this stop is mandatory"' : '';
+    const toggle = `<label class="miniswitch"${why}><input type="checkbox" data-must="${n.id}"${n.must || forcedByMachine ? ' checked' : ''}${locked ? ' disabled' : ''}><span>mandatory</span></label>`;
     const steppers = isBank ? '' :
       `<span class="stepper"><button data-m="${n.id}" data-d="-1" title="remove machine">−</button><span class="cnt">${n.machines.length}</span><button data-m="${n.id}" data-d="1" title="add machine">＋</button></span>`;
     return `<div class="lc">${label}${toggle}<span class="spc"></span>${steppers}</div>`;
@@ -638,13 +709,18 @@ function updateKPIs(b) {
   const locs = NODES.filter(n => n.kind === 'loc');
   const totMach = locs.reduce((a, n) => a + n.machines.length, 0);
   const hasRoute = b.order.length > 0;
-  const mustCount = locs.filter(n => n.must).length;
+  const mustCount = locs.filter(mustStop).length;
   const nm = Object.fromEntries(NODES.map(n => [n.id, n.name]));
   const kind = Object.fromEntries(NODES.map(n => [n.id, n.kind]));
   const locsVisited = b.order.filter(id => kind[id] === 'loc').length;
+  const forcedCount = (b.chosen || []).filter(it => it.ref && it.ref.must).length;
   const rev = showAnswer, q = '<span style="opacity:.5">?</span>';
   const kpis = [
-    { k: 'Points', v: rev ? (hasRoute ? b.reward : 0) : q, s: rev ? `pt · selected ${b.chosen.length}/${totMach}` : `pt · choose from ${totMach} machines`, cls: 'accent', hl: true },
+    { k: 'Points', v: rev ? (hasRoute ? b.reward : 0) : q,
+      /* Split the count, because the rings do: a must-service machine keeps its
+         purple ring even when it is serviced, so blue rings only ever equal the
+         chosen half. Printing one total made the two impossible to reconcile. */
+      s: rev ? `pt · ${b.chosen.length - forcedCount} chosen + ${forcedCount} must-service / ${totMach}` : `pt · choose from ${totMach} machines`, cls: 'accent', hl: true },
     { k: 'Working time', v: rev ? (hasRoute ? b.total : 0) : q, s: `/ ${dayBudget} min`, cls: '' },
     { k: 'Travel + work', v: rev ? `${b.travel}+${b.work}` : q, s: 'min (travel + work)', cls: 'small' },
     { k: 'Locations visited', v: rev ? locsVisited : q, s: `/ ${locs.length} · mandatory ${mustCount}`, cls: '' },
@@ -658,7 +734,7 @@ function updateKPIs(b) {
     : (hasRoute
         ? `Optimal route: <b>Home → ${b.order.map(id => nm[id]).join(' → ')} → Home</b>`
         : (b.mustFail
-            ? `<span style="color:var(--must)">Can't cover the mandatory stops within ${dayBudget} min — increase working time or 🎲 regenerate</span>`
+            ? `<span style="color:var(--must)">Can't cover the mandatory stops and machines within ${dayBudget} min — increase working time or 🎲 regenerate</span>`
             : `No worthwhile route within ${dayBudget} min — 🎲 regenerate`));
 }
 
@@ -700,7 +776,15 @@ mustEl.addEventListener('input', () => {
   nMust = Math.min(Number(mustEl.value), nLoc); mustEl.value = nMust; mustVal.textContent = nMust;
   const locs = NODES.filter(n => n.kind === 'loc');
   locs.forEach(n => n.must = false);
-  locs.slice().sort(() => Math.random() - 0.5).slice(0, nMust).forEach(n => n.must = true);
+  shuffled(locs).slice(0, nMust).forEach(n => n.must = true);
+  render();
+});
+
+const mustMEl = document.getElementById('mustMachines'), mustMVal = document.getElementById('mustMVal');
+mustMEl.addEventListener('input', () => {
+  nMustMachines = Number(mustMEl.value);
+  nMustMachines = assignMustMachines();                 // clamped to the machines that exist
+  mustMEl.value = nMustMachines; mustMVal.textContent = nMustMachines;
   render();
 });
 
@@ -738,6 +822,10 @@ document.getElementById('mctrl').addEventListener('click', e => {
   const node = NODES.find(n => n.id === btn.dataset.m);
   if (Number(btn.dataset.d) > 0) { if (node.machines.length < 10) node.machines.push(mk()); }
   else if (node.machines.length > 1) node.machines.pop();
+  /* Popping can take a must-service machine with it, and pushing adds an ordinary
+     one, so the board would drift away from the count the slider shows. Re-draw it. */
+  nMustMachines = assignMustMachines();
+  mustMEl.value = nMustMachines; mustMVal.textContent = nMustMachines;
   render();
 });
 
