@@ -164,15 +164,24 @@ test('E5: Points KPI は選ばれた機械の pt 合計と一致し、mandatory 
     const r = await page.evaluate(() => {
       const best = optimize();
       const text = document.getElementById('kpis')!.innerText;
+      const m = /(\d+) chosen \+ (\d+) must-service/.exec(text);
+      const rings = [...document.querySelectorAll('#board-a svg circle[fill="none"]')];
       return {
         sum: best.chosen.reduce((a: number, it: any) => a + it.pt, 0),
         reward: best.order.length > 0 ? best.reward : 0,
         shown: Number(/mandatory (\d+)/.exec(text)?.[1] ?? -1),
         purple: NODES.filter((n: any) => n.kind === 'loc' && mustStop(n)).length,
+        kpi: m ? { chosen: Number(m[1]), forced: Number(m[2]) } : null,
+        blue: rings.filter((c) => (c.getAttribute('stroke') ?? '').includes('--accent')).length,
+        forcedChosen: best.chosen.filter((it: any) => it.ref.must).length,
       };
     });
     expect(r.sum).toBe(r.reward);
     expect(r.shown, 'KPI の mandatory が紫の拠点数と合わない').toBe(r.purple);
+    // 内訳が青い輪の数と突き合うこと。1 つの合計だと盤面と照合できない
+    expect(r.kpi, 'Points KPI に chosen / must-service の内訳が出ていない').not.toBeNull();
+    expect(r.kpi!.chosen, '青い輪の数と KPI の chosen が合わない').toBe(r.blue);
+    expect(r.kpi!.forced, '紫の輪の数と KPI の must-service が合わない').toBe(r.forcedChosen);
   }
 });
 
@@ -200,8 +209,9 @@ test('E7: Scoring Logic タブが 0–10pt 表記で、3・4 が必須の出ど�
   await expect(logic.locator('thead')).toContainText('Points');
   await expect(logic).not.toContainText('3pt');
 
+  // 1・2・5 は範囲。範囲でないと 0〜10 のうち奇数が表で説明できなくなる
   const pts = await logic.locator('td.pts').allTextContents();
-  expect(pts).toEqual(['4', '4', '10', '10', '2', '—']);
+  expect(pts).toEqual(['0–4', '0–4', '10', '10', '0–2', '—']);
 
   // 3・4 の点は紫（必須の色）、1・2・5 は青（積み上げの色）
   const colours = await logic.locator('td.pts').evaluateAll((tds) =>
@@ -210,9 +220,71 @@ test('E7: Scoring Logic タブが 0–10pt 表記で、3・4 が必須の出ど�
 });
 
 test('E8: 凡例に必須マシンの行があり、説明文が 0〜10 と紫の輪に触れている', async ({ page }) => {
-  await expect(page.locator('.legend')).toContainText('Mandatory machine (always 10pt)');
+  await expect(page.locator('.legend')).toContainText('Must-service machine (pinned to 10pt)');
   await expect(page.locator('.legend')).toContainText('Selected machine');
   const machineNote = page.locator('.note', { hasText: 'The small circles inside a location' });
   await expect(machineNote).toContainText('number = points (0–10)');
   await expect(machineNote).toContainText('purple ring = must be serviced');
+});
+
+test('E9: Must-service machines を 0 にすると、必須マシンも機械由来の紫の拠点も消える', async ({ page }) => {
+  await page.evaluate(() => {
+    const el = document.getElementById('mustMachines') as HTMLInputElement;
+    el.value = '0'; el.dispatchEvent(new Event('input'));
+  });
+  for (let round = 0; round < 25; round++) {
+    const r = await page.evaluate(() => ({
+      must: NODES.filter((n: any) => n.kind === 'loc')
+        .reduce((a: number, n: any) => a + n.machines.filter((m: any) => m.must).length, 0),
+      forced: NODES.filter((n: any) => n.kind === 'loc' && machineMust(n)).length,
+    }));
+    expect(r.must, 'スライダー 0 なのに必須マシンが出ている').toBe(0);
+    expect(r.forced, '機械由来の紫の拠点が残っている').toBe(0);
+    await page.click('#reroll');
+  }
+});
+
+test('E10: Must-service machines の本数が、そのまま盤面の必須マシンの数になる', async ({ page }) => {
+  for (const want of [0, 1, 3, 6]) {
+    await page.evaluate((v) => {
+      const el = document.getElementById('mustMachines') as HTMLInputElement;
+      el.value = String(v); el.dispatchEvent(new Event('input'));
+    }, want);
+    const r = await page.evaluate(() => {
+      const ms = NODES.filter((n: any) => n.kind === 'loc').flatMap((n: any) => n.machines);
+      return { must: ms.filter((m: any) => m.must).length, total: ms.length,
+               notTen: ms.filter((m: any) => m.must && m.pt !== 10).length };
+    });
+    expect(r.must, `${want} を指定したのに必須マシンが ${r.must} 台`).toBe(Math.min(want, r.total));
+    expect(r.notTen, '必須マシンが 10pt でない').toBe(0);
+  }
+});
+
+test('E11: Working time は、同じ点を取れる最小の時間になっている', async ({ page }) => {
+  for (let round = 0; round < 12; round++) {
+    await page.click('#reroll');
+    if (!(await page.evaluate(() => showAnswer))) await page.click('#reveal');
+    const worse = await page.evaluate(() => {
+      const best = optimize();
+      if (best.order.length === 0) return 0;
+      // 同じ順路・同じ点数で、より短く済む機械の選び方があるか総当たりで探す
+      const byId = Object.fromEntries(NODES.map((n: any) => [n.id, n]));
+      const items: any[] = [];
+      let forcedMin = 0, forcedPt = 0;
+      best.order.forEach((id: string) => (byId[id].machines || []).forEach((m: any) => {
+        const min = (TYPES[m.type] || TYPES[0]).min;
+        if (m.must) { forcedMin += min; forcedPt += m.pt; } else items.push({ pt: m.pt, min });
+      }));
+      if (items.length > 20) return 0;            // 総当たりが重すぎる盤面は飛ばす
+      const cap = dayBudget - best.travel - (best.order.includes('bank') ? BANK_MIN : 0) - forcedMin;
+      let cheapest = Infinity;
+      for (let mask = 0; mask < (1 << items.length); mask++) {
+        let pt = forcedPt, min = 0;
+        for (let i = 0; i < items.length; i++) if (mask & (1 << i)) { pt += items[i].pt; min += items[i].min; }
+        if (min <= cap && pt === best.reward) cheapest = Math.min(cheapest, min + forcedMin);
+      }
+      return cheapest === Infinity ? 0 : best.work - (best.order.includes('bank') ? BANK_MIN : 0) - cheapest;
+    });
+    expect(worse, '同じ点をもっと短い作業時間で取れる').toBeLessThanOrEqual(0);
+  }
 });
