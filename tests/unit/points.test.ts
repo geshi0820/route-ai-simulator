@@ -52,3 +52,21 @@ describe('マシンのポイント', () => {
     expect(found).toBe(true);
   });
 });
+
+describe('抽選の偏り', () => {
+  it('U16: shuffled() はどの位置も同じ確率で先頭に来る', async () => {
+    app = await loadApp();
+    const N = 40, DRAWS = 8000;
+    const hit = app.read<number[]>(`(() => {
+      const hit = new Array(${N}).fill(0);
+      for (let d = 0; d < ${DRAWS}; d++) hit[shuffled(Array.from({ length: ${N} }, (_, i) => i))[0]]++;
+      return hit;
+    })()`);
+    const expected = DRAWS / N;
+    const min = Math.min(...hit), max = Math.max(...hit);
+    /* 8000 回 × 40 枠なら期待値 200。±35% で十分ゆるく、
+       sort(() => Math.random() - 0.5) の 3.2 倍の偏りは確実に外れる。 */
+    expect(min, `いちばん出ない位置が ${min} 回（期待 ${expected}）`).toBeGreaterThan(expected * 0.65);
+    expect(max, `いちばん出る位置が ${max} 回（期待 ${expected}）`).toBeLessThan(expected * 1.35);
+  });
+});

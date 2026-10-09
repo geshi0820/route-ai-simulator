@@ -288,3 +288,70 @@ test('E11: Working time は、同じ点を取れる最小の時間になって�
     expect(worse, '同じ点をもっと短い作業時間で取れる').toBeLessThanOrEqual(0);
   }
 });
+
+test('E12: Must-service machines を動かしても、必須でない機械の点は変わらない', async ({ page }) => {
+  const snap = () => page.evaluate(() =>
+    NODES.filter((n: any) => n.kind === 'loc')
+      .flatMap((n: any) => n.machines.map((m: any) => ({ base: m.base, pt: m.pt, must: m.must }))));
+  const before = await snap();
+  for (const v of [5, 0, 8, 2]) {
+    await page.evaluate((x) => {
+      const el = document.getElementById('mustMachines') as HTMLInputElement;
+      el.value = String(x); el.dispatchEvent(new Event('input'));
+    }, v);
+    const after = await snap();
+    expect(after).toHaveLength(before.length);
+    after.forEach((m, i) => {
+      expect(m.base, '機械の素点が書き換わっている').toBe(before[i].base);
+      // 必須なら 10 に固定、そうでなければ素点そのまま
+      expect(m.pt, m.must ? '必須なのに 10pt でない' : 'スライダーで必須でない機械の点が変わった')
+        .toBe(m.must ? 10 : m.base);
+    });
+  }
+});
+
+test('E13: 機械を ＋ − しても、必須マシンの本数がスライダーの表示と食い違わない', async ({ page }) => {
+  await page.evaluate(() => {
+    const el = document.getElementById('mustMachines') as HTMLInputElement;
+    el.value = '2'; el.dispatchEvent(new Event('input'));
+  });
+  // 必須マシンを末尾に寄せてから − を押す。− は末尾を落とすので、必須が巻き添えになる経路
+  const id = await page.evaluate(() => {
+    const n = NODES.find((x: any) => x.kind === 'loc' && x.machines.some((m: any) => m.must));
+    if (!n) return null;
+    const i = n.machines.findIndex((m: any) => m.must);
+    n.machines.push(n.machines.splice(i, 1)[0]);
+    render();
+    return n.id;
+  });
+  expect(id, '必須マシンを持つ拠点が見つからない').not.toBeNull();
+  for (const d of ['-1', '1', '-1', '-1', '1']) {
+    await page.click(`button[data-m="${id}"][data-d="${d}"]`);
+    const r = await page.evaluate(() => ({
+      shown: Number((document.getElementById('mustMVal') as HTMLElement).textContent),
+      slider: Number((document.getElementById('mustMachines') as HTMLInputElement).value),
+      actual: NODES.filter((n: any) => n.kind === 'loc')
+        .reduce((a: number, n: any) => a + n.machines.filter((m: any) => m.must).length, 0),
+    }));
+    expect(r.actual, `表示 ${r.shown} に対し盤面の必須マシンは ${r.actual} 台`).toBe(r.shown);
+    expect(r.slider, 'スライダーの値と表示が食い違う').toBe(r.shown);
+  }
+});
+
+test('E14: 盤面にある機械より多い本数を指定しても、表示が実際の数に揃う', async ({ page }) => {
+  await page.evaluate(() => {
+    const ln = document.getElementById('locN') as HTMLInputElement;
+    ln.value = '3'; ln.dispatchEvent(new Event('input'));
+    NODES.filter((n: any) => n.kind === 'loc').forEach((n: any) => { n.machines = n.machines.slice(0, 1); });
+    const el = document.getElementById('mustMachines') as HTMLInputElement;
+    el.value = '12'; el.dispatchEvent(new Event('input'));
+  });
+  const r = await page.evaluate(() => ({
+    shown: Number((document.getElementById('mustMVal') as HTMLElement).textContent),
+    total: NODES.filter((n: any) => n.kind === 'loc').flatMap((n: any) => n.machines).length,
+    actual: NODES.filter((n: any) => n.kind === 'loc')
+      .flatMap((n: any) => n.machines).filter((m: any) => m.must).length,
+  }));
+  expect(r.shown, '機械の数より多い本数を表示している').toBe(r.total);
+  expect(r.actual).toBe(r.total);
+});
